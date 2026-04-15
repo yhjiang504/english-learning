@@ -14,20 +14,20 @@ import { getTodayWords } from './spaced-repetition.js';
 
 // ── 設定區（部署時更新） ─────────────────────────────────
 // Google Cloud Console → OAuth 2.0 用戶端 ID（Web 應用程式類型）
-const GOOGLE_CLIENT_ID   = '185112442093-cd2tsfhdab9kho7ed807kgrobdosdvit.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '185112442093-cd2tsfhdab9kho7ed807kgrobdosdvit.apps.googleusercontent.com';
 // GitHub Pages 部署後的網址（需加入 OAuth 授權重新導向 URI）
-const REDIRECT_URI       = 'https://yhjiang504.github.io/english-learning/';
+const REDIRECT_URI = 'https://yhjiang504.github.io/english-learning/';
 // Google OAuth 授權端點
-const OAUTH_ENDPOINT     = 'https://accounts.google.com/o/oauth2/v2/auth';
+const OAUTH_ENDPOINT = 'https://accounts.google.com/o/oauth2/v2/auth';
 // 需要的 API 範圍
-const SCOPES             = 'https://www.googleapis.com/auth/spreadsheets';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
 
 // ── 全域狀態 ────────────────────────────────────────────
 export const state = {
-  token:      null,     // OAuth Access Token
-  allWords:   [],       // 所有單字
+  token: null,     // OAuth Access Token
+  allWords: [],       // 所有單字
   todayWords: [],       // 今日複習清單
-  isOnline:   navigator.onLine
+  isOnline: navigator.onLine
 };
 
 // ══════════════════════════════════════════
@@ -53,7 +53,7 @@ export async function initApp() {
   await loadWords();
 
   // 4. 監聽網路狀態
-  window.addEventListener('online',  () => { state.isOnline = true;  showToast('網路已恢復', 'success'); });
+  window.addEventListener('online', () => { state.isOnline = true; showToast('網路已恢復', 'success'); });
   window.addEventListener('offline', () => { state.isOnline = false; showToast('已進入離線模式，使用快取資料', 'warning'); });
 }
 
@@ -66,11 +66,11 @@ export async function initApp() {
  */
 export function loginWithGoogle() {
   const params = new URLSearchParams({
-    client_id:     GOOGLE_CLIENT_ID,
-    redirect_uri:  REDIRECT_URI,
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
     response_type: 'token',
-    scope:         SCOPES,
-    prompt:        'select_account'
+    scope: SCOPES,
+    prompt: 'select_account'
   });
   window.location.href = `${OAUTH_ENDPOINT}?${params}`;
 }
@@ -121,7 +121,7 @@ export async function loadWords() {
   // 先載入快取（確保離線時有資料）
   const { words: cached } = loadFromLocalStorage();
   if (cached.length > 0) {
-    state.allWords   = mergeLocalProgress(cached);
+    state.allWords = mergeLocalProgress(cached);
     state.todayWords = getTodayWords(state.allWords);
   }
 
@@ -148,7 +148,7 @@ export async function syncFromSheets(showFeedback = true) {
 
     // 合併本地的 SM-2 進度（nextReviewDate 等）到新資料
     const merged = mergeLocalProgress(freshWords);
-    state.allWords   = merged;
+    state.allWords = merged;
     state.todayWords = getTodayWords(merged);
 
     syncToLocalStorage(merged);
@@ -194,12 +194,12 @@ export function saveWordProgress(word) {
   const progress = localRaw ? JSON.parse(localRaw) : {};
 
   progress[word.word] = {
-    interval:            word.interval,
-    consecutiveCorrect:  word.consecutiveCorrect,
-    errorCount:          word.errorCount,
-    nextReviewDate:      word.nextReviewDate,
-    lastReviewDate:      word.lastReviewDate,
-    reviewStatus:        word.reviewStatus
+    interval: word.interval,
+    consecutiveCorrect: word.consecutiveCorrect,
+    errorCount: word.errorCount,
+    nextReviewDate: word.nextReviewDate,
+    lastReviewDate: word.lastReviewDate,
+    reviewStatus: word.reviewStatus
   };
 
   localStorage.setItem('vocab_sm2_progress', JSON.stringify(progress));
@@ -213,7 +213,7 @@ export function saveWordProgress(word) {
  */
 function recordDailyReview() {
   const today = new Date().toISOString().split('T')[0];
-  const raw   = localStorage.getItem('vocab_daily_reviews') || '{}';
+  const raw = localStorage.getItem('vocab_daily_reviews') || '{}';
   const daily = JSON.parse(raw);
   daily[today] = (daily[today] || 0) + 1;
   localStorage.setItem('vocab_daily_reviews', JSON.stringify(daily));

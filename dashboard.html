@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#cba6f7">
+  <meta name="description" content="英語單字複習進度儀表板">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>進度 — 英語單字複習</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./styles.css">
+  <style>
+    /* ── 儀表板專用樣式 ─────────── */
+
+    /* 分組標籤頁 */
+    .tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--color-surface0);
+      margin: 8px 0 16px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+
+    .tab-item {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--color-overlay0);
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .tab-item:hover  { color: var(--color-text); }
+    .tab-item.active {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-primary);
+    }
+
+    /* 匯出按鈕 */
+    .export-btn {
+      background: var(--color-surface0);
+      color: var(--color-subtext);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 5px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .export-btn:hover { background: var(--color-surface1); color: var(--color-text); }
+
+    /* 搜尋框 */
+    .search-input {
+      width: 100%;
+      background: var(--color-mantle);
+      border: 1px solid var(--color-surface0);
+      border-radius: var(--radius-md);
+      color: var(--color-text);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color var(--transition);
+    }
+    .search-input:focus { border-color: var(--color-primary); }
+    .search-input::placeholder { color: var(--color-overlay0); }
+
+    /* 排序箭頭 */
+    .sort-arrow::after {
+      content: ' ↕';
+      font-size: 10px;
+      opacity: 0.5;
+    }
+    .sort-arrow.asc::after  { content: ' ↑'; opacity: 1; }
+    .sort-arrow.desc::after { content: ' ↓'; opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ── 頂部導覽列 ─────────────────────────────── -->
+<nav class="top-nav">
+  <a class="nav-back" href="./index.html">← 首頁</a>
+  <span class="nav-title">📊 學習進度</span>
+  <button class="export-btn" id="btn-export">匯出 CSV</button>
+</nav>
+
+<div class="page-wrapper">
+
+  <!-- ── 統計卡片（count-up 動畫） ───────────── -->
+  <div class="stats-grid" style="margin-top:16px">
+    <div class="stat-card">
+      <div class="stat-number"      id="stat-total">0</div>
+      <div class="stat-label">總單字數</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number green" id="stat-familiar">0</div>
+      <div class="stat-label">✅ 已熟悉</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number yellow" id="stat-reviewing">0</div>
+      <div class="stat-label">🔁 複習中</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number blue" id="stat-unreviewed">0</div>
+      <div class="stat-label">📘 未複習</div>
+    </div>
+  </div>
+
+  <!-- ── 圖表區 ──────────────────────────────── -->
+  <div class="chart-wrap">
+    <div class="chart-title">CEFR 等級分布</div>
+    <canvas id="chart-cefr" height="120"></canvas>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="chart-title">主題分類分布</div>
+    <canvas id="chart-topic" height="120"></canvas>
+  </div>
+
+  <!-- ── 篩選器 ─────────────────────────────── -->
+  <div class="section-header">
+    <div class="section-title">單字列表</div>
+    <span style="font-size:12px;color:var(--color-overlay0)" id="word-count-label">0 個</span>
+  </div>
+
+  <!-- 搜尋框 -->
+  <input type="search" class="search-input" id="search-input"
+         placeholder="🔍 搜尋單字或翻譯...">
+
+  <!-- 多益篩選 -->
+  <div class="filter-group" style="margin-top:12px">
+    <button class="filter-chip active" data-filter="all">全部</button>
+    <button class="filter-chip" data-filter="toeic">⭐ 多益高頻</button>
+    <button class="filter-chip" data-filter="familiar">✅ 已熟悉</button>
+    <button class="filter-chip" data-filter="reviewing">🔁 複習中</button>
+    <button class="filter-chip" data-filter="unreviewed">📘 未複習</button>
+  </div>
+
+  <!-- 主題分類篩選 -->
+  <div class="filter-group" id="topic-filters">
+    <!-- 由 JS 動態渲染 -->
+  </div>
+
+  <!-- 分頁標籤（按 CEFR 等級） -->
+  <div class="tab-bar" id="cefr-tabs">
+    <div class="tab-item active" data-cefr="all">全部等級</div>
+    <div class="tab-item" data-cefr="A1">A1</div>
+    <div class="tab-item" data-cefr="A2">A2</div>
+    <div class="tab-item" data-cefr="B1">B1</div>
+    <div class="tab-item" data-cefr="B2">B2</div>
+    <div class="tab-item" data-cefr="C1">C1</div>
+    <div class="tab-item" data-cefr="C2">C2</div>
+  </div>
+
+  <!-- 單字列表表格 -->
+  <div class="word-table-wrap">
+    <table class="word-table">
+      <thead>
+        <tr>
+          <th class="sort-arrow" data-col="word">單字</th>
+          <th class="sort-arrow" data-col="cefr">CEFR</th>
+          <th>多益</th>
+          <th class="sort-arrow" data-col="reviewStatus">狀態</th>
+          <th class="sort-arrow" data-col="errorCount">錯誤</th>
+          <th>主題</th>
+        </tr>
+      </thead>
+      <tbody id="word-table-body">
+        <!-- 由 JS 動態渲染 -->
+        <tr><td colspan="6" class="skeleton" style="height:40px"></td></tr>
+        <tr><td colspan="6" class="skeleton" style="height:40px"></td></tr>
+        <tr><td colspan="6" class="skeleton" style="height:40px"></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 顯示更多 -->
+  <div style="text-align:center;margin:16px 0">
+    <button class="btn btn-secondary" id="btn-load-more"
+            style="padding:8px 24px;font-size:13px">
+      顯示更多
+    </button>
+  </div>
+
+</div><!-- /page-wrapper -->
+
+<div class="toast-container"></div>
+
+<script type="module">
+import { initApp, state, showToast } from './app.js';
+import { STATUS } from './spaced-repetition.js';
+import { drawCEFRChart, drawTopicChart } from './stats-chart.js';
+
+// ── 初始化 ───────────────────────────────────────────────────
+await initApp();
+
+// ── 篩選狀態 ─────────────────────────────────────────────────
+const filters = {
+  search:  '',
+  status:  'all',   // all / toeic / familiar / reviewing / unreviewed
+  topic:   'all',
+  cefr:    'all',
+  sortCol: 'word',
+  sortDir: 'asc',
+};
+let displayCount = 30; // 每次顯示數量
+
+// ── 初始化頁面 ───────────────────────────────────────────────
+function initPage() {
+  const words = state.allWords;
+
+  // 更新統計數字（count-up 動畫）
+  countUp('stat-total',      words.length,                                          600);
+  countUp('stat-familiar',   words.filter(w => w.reviewStatus === STATUS.FAMILIAR).length,   600);
+  countUp('stat-reviewing',  words.filter(w => w.reviewStatus === STATUS.REVIEWING).length,  600);
+  countUp('stat-unreviewed', words.filter(w => w.reviewStatus === STATUS.UNREVIEWED).length, 600);
+
+  // 繪製圖表
+  drawCEFRChart(document.getElementById('chart-cefr').getContext('2d'), words);
+  drawTopicChart(document.getElementById('chart-topic').getContext('2d'), words);
+
+  // 主題篩選按鈕
+  renderTopicFilters(words);
+
+  // 渲染表格
+  renderTable();
+}
+
+// ── Count-up 數字動畫 ────────────────────────────────────────
+function countUp(elId, target, duration = 600) {
+  const el   = document.getElementById(elId);
+  const start = performance.now();
+  const step  = (now) => {
+    const t   = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+    el.textContent = Math.round(eased * target);
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = target;
+  };
+  requestAnimationFrame(step);
+}
+
+// ── 主題篩選按鈕 ─────────────────────────────────────────────
+function renderTopicFilters(words) {
+  const topics = ['all', ...new Set(words.map(w => w.topic).filter(Boolean))];
+  const container = document.getElementById('topic-filters');
+  container.innerHTML = topics.map(t => `
+    <button class="filter-chip${t === 'all' ? ' active' : ''}" data-topic="${t}">
+      ${t === 'all' ? '所有主題' : t}
+    </button>
+  `).join('');
+
+  container.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-topic]');
+    if (!chip) return;
+    container.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    filters.topic = chip.dataset.topic;
+    displayCount = 30;
+    renderTable();
+  });
+}
+
+// ── 渲染單字表格 ─────────────────────────────────────────────
+function renderTable() {
+  const words = getFilteredSortedWords();
+  document.getElementById('word-count-label').textContent = `${words.length} 個`;
+
+  const tbody = document.getElementById('word-table-body');
+  const slice = words.slice(0, displayCount);
+
+  if (slice.length === 0) {
+    tbody.innerHTML = `
+      <tr><td colspan="6" style="text-align:center;padding:32px;color:var(--color-overlay0)">
+        找不到符合條件的單字
+      </td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = slice.map(w => {
+    const statusColor = {
+      [STATUS.FAMILIAR]:   'green',
+      [STATUS.REVIEWING]:  'yellow',
+      [STATUS.UNREVIEWED]: 'blue'
+    }[w.reviewStatus] || '';
+
+    return `<tr>
+      <td style="font-weight:700;color:var(--color-primary)">${esc(w.word)}</td>
+      <td>
+        ${w.cefr
+          ? `<span class="badge badge-cefr-${w.cefr}">${w.cefr}</span>`
+          : '<span style="color:var(--color-overlay0)">—</span>'}
+      </td>
+      <td>${w.toeic ? '⭐' : ''}</td>
+      <td>
+        <span class="stat-number ${statusColor}"
+              style="font-size:12px;display:inline">
+          ${esc(w.reviewStatus || '未複習')}
+        </span>
+      </td>
+      <td style="color:${w.errorCount > 2 ? 'var(--color-red)' : 'inherit'}">
+        ${w.errorCount || 0}
+      </td>
+      <td style="font-size:12px;color:var(--color-subtext)">${esc(w.topic || '')}</td>
+    </tr>`;
+  }).join('');
+
+  // 顯示/隱藏「顯示更多」
+  document.getElementById('btn-load-more').style.display =
+    displayCount < words.length ? '' : 'none';
+}
+
+// ── 篩選 + 排序邏輯 ──────────────────────────────────────────
+function getFilteredSortedWords() {
+  let words = [...state.allWords];
+
+  // 搜尋
+  if (filters.search) {
+    const q = filters.search.toLowerCase();
+    words = words.filter(w =>
+      w.word.toLowerCase().includes(q) ||
+      (w.translation || '').includes(q)
+    );
+  }
+
+  // 狀態篩選
+  if (filters.status === 'toeic')      words = words.filter(w => w.toeic);
+  else if (filters.status === 'familiar')   words = words.filter(w => w.reviewStatus === STATUS.FAMILIAR);
+  else if (filters.status === 'reviewing')  words = words.filter(w => w.reviewStatus === STATUS.REVIEWING);
+  else if (filters.status === 'unreviewed') words = words.filter(w => w.reviewStatus === STATUS.UNREVIEWED);
+
+  // 主題篩選
+  if (filters.topic !== 'all') words = words.filter(w => w.topic === filters.topic);
+
+  // CEFR 篩選
+  if (filters.cefr  !== 'all') words = words.filter(w => w.cefr  === filters.cefr);
+
+  // 排序
+  words.sort((a, b) => {
+    let va = a[filters.sortCol] ?? '';
+    let vb = b[filters.sortCol] ?? '';
+    if (typeof va === 'boolean') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+    if (typeof va === 'number')  return filters.sortDir === 'asc' ? va - vb : vb - va;
+    return filters.sortDir === 'asc'
+      ? String(va).localeCompare(String(vb))
+      : String(vb).localeCompare(String(va));
+  });
+
+  return words;
+}
+
+// ── 匯出 CSV ─────────────────────────────────────────────────
+function exportCSV() {
+  const words = getFilteredSortedWords();
+  const header = ['單字','翻譯','詞性','CEFR','多益高頻','主題','複習狀態','錯誤次數','新增日期'];
+  const rows = words.map(w => [
+    w.word, w.translation, w.pos, w.cefr,
+    w.toeic ? 'TRUE' : 'FALSE',
+    w.topic, w.reviewStatus, w.errorCount, w.addedDate
+  ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
+
+  const csv  = [header.join(','), ...rows].join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }); // BOM for Excel
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `vocab_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV 已匯出', 'success');
+}
+
+// ── 事件綁定 ─────────────────────────────────────────────────
+
+// 搜尋框
+document.getElementById('search-input').addEventListener('input', (e) => {
+  filters.search = e.target.value.trim();
+  displayCount   = 30;
+  renderTable();
+});
+
+// 狀態篩選
+document.querySelectorAll('[data-filter]').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('[data-filter]').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    filters.status = chip.dataset.filter;
+    displayCount   = 30;
+    renderTable();
+  });
+});
+
+// CEFR 分頁
+document.querySelectorAll('[data-cefr]').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('[data-cefr]').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    filters.cefr = tab.dataset.cefr;
+    displayCount = 30;
+    renderTable();
+  });
+});
+
+// 表頭排序
+document.querySelectorAll('[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (filters.sortCol === col) {
+      filters.sortDir = filters.sortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      filters.sortCol = col;
+      filters.sortDir = 'asc';
+    }
+    document.querySelectorAll('[data-col]').forEach(h => {
+      h.classList.remove('sorted', 'asc', 'desc');
+    });
+    th.classList.add('sorted', filters.sortDir);
+    renderTable();
+  });
+});
+
+// 顯示更多
+document.getElementById('btn-load-more').addEventListener('click', () => {
+  displayCount += 30;
+  renderTable();
+});
+
+// 匯出 CSV
+document.getElementById('btn-export').addEventListener('click', exportCSV);
+
+// 資料更新後重新渲染
+window.addEventListener('words-updated', initPage);
+
+// 工具
+function esc(str) { return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── 啟動 ─────────────────────────────────────────────────────
+initPage();
+</script>
+</body>
+</html>

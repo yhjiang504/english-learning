@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#cba6f7">
+  <meta name="description" content="翻牌刷題複習英語單字">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>刷題 — 英語單字複習</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="stylesheet" href="./styles.css">
+  <style>
+    /* ── 刷題頁專用樣式 ─────────── */
+    .review-header {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .progress-info {
+      font-size: 13px;
+      color: var(--color-subtext);
+    }
+
+    .progress-info strong {
+      color: var(--color-primary);
+      font-size: 16px;
+    }
+
+    .review-area {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* 鍵盤提示 */
+    .keyboard-hint {
+      text-align: center;
+      font-size: 11px;
+      color: var(--color-overlay0);
+      margin-top: 8px;
+    }
+
+    /* 完成畫面 */
+    .result-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100dvh - 80px);
+      padding: 32px 24px;
+      text-align: center;
+      gap: 20px;
+    }
+
+    .result-screen.show { display: flex; }
+
+    .result-emoji { font-size: 56px; }
+    .result-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--color-primary);
+    }
+
+    .result-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .result-stat {
+      background: var(--color-mantle);
+      border: 1px solid var(--color-surface0);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      text-align: center;
+    }
+
+    .result-stat-num  { font-size: 24px; font-weight: 800; }
+    .result-stat-label { font-size: 11px; color: var(--color-overlay0); margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ── 頂部（進度列 + 返回） ─────────────────── -->
+<div class="review-header">
+  <button class="nav-back" id="btn-back">
+    ← 返回
+  </button>
+  <div class="progress-info">
+    <strong id="current-num">1</strong> / <span id="total-num">0</span>
+  </div>
+  <button class="btn btn-secondary" id="btn-skip"
+          style="padding:6px 12px;font-size:12px">跳過</button>
+</div>
+
+<!-- 進度條 -->
+<div style="padding:0 20px;margin-bottom:8px">
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+</div>
+
+<!-- ── 刷題主區域 ─────────────────────────────── -->
+<div class="review-area" id="review-area">
+
+  <!-- 閃卡 -->
+  <div class="flashcard-scene" id="flashcard-scene">
+    <div class="flashcard" id="flashcard">
+      <!-- 正面：英文單字 -->
+      <div class="flashcard-face flashcard-front">
+        <div class="card-word" id="card-word">—</div>
+        <div class="card-hint">點擊或按空白鍵翻牌</div>
+      </div>
+      <!-- 背面：中文翻譯 + 例句 + 徽章 -->
+      <div class="flashcard-face flashcard-back">
+        <div class="card-badges" id="card-badges"></div>
+        <div class="card-translation" id="card-translation">—</div>
+        <div class="card-sentence" id="card-sentence"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 翻牌後才顯示的答題按鈕 -->
+  <div class="answer-btns" id="answer-btns" style="display:none">
+    <button class="btn btn-wrong btn-lg" id="btn-wrong">
+      ✗ 再複習
+    </button>
+    <button class="btn btn-correct btn-lg" id="btn-correct">
+      ✓ 我記得
+    </button>
+  </div>
+
+  <!-- 翻牌前顯示的鍵盤提示 -->
+  <div class="keyboard-hint" id="keyboard-hint">
+    Space 翻牌  ·  ← 再複習  ·  → 記得了
+  </div>
+
+  <!-- 發音按鈕 -->
+  <div style="text-align:center;margin-top:16px">
+    <button class="btn btn-secondary" id="btn-speak"
+            style="padding:8px 20px;font-size:13px">
+      🔊 朗讀
+    </button>
+  </div>
+
+</div><!-- /review-area -->
+
+<!-- ── 完成畫面 ───────────────────────────────── -->
+<div class="result-screen" id="result-screen">
+  <div class="result-emoji" id="result-emoji">🎉</div>
+  <div class="result-title">複習完成！</div>
+  <div style="font-size:14px;color:var(--color-subtext)">今日表現</div>
+
+  <div class="result-stats">
+    <div class="result-stat">
+      <div class="result-stat-num green" id="res-correct">0</div>
+      <div class="result-stat-label">答對</div>
+    </div>
+    <div class="result-stat">
+      <div class="result-stat-num red" id="res-wrong">0</div>
+      <div class="result-stat-label">答錯</div>
+    </div>
+    <div class="result-stat">
+      <div class="result-stat-num blue" id="res-total">0</div>
+      <div class="result-stat-label">總題</div>
+    </div>
+  </div>
+
+  <div style="font-size:13px;color:var(--color-subtext);max-width:280px">
+    <span id="res-message"></span>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:320px">
+    <button class="btn btn-primary btn-full" id="btn-review-again">
+      🔄 再練一次
+    </button>
+    <a class="btn btn-secondary btn-full" href="./index.html">
+      🏠 回首頁
+    </a>
+    <a class="btn btn-secondary btn-full" href="./dashboard.html">
+      📊 查看進度
+    </a>
+  </div>
+</div>
+
+<div class="toast-container"></div>
+
+<script type="module">
+import { initApp, state, saveWordProgress, showToast } from './app.js';
+import { recordAnswer, getTodayWords } from './spaced-repetition.js';
+import { updateWordStatus } from './sheets-api.js';
+
+// ── 初始化 ───────────────────────────────────────────────────
+await initApp();
+
+// ── 狀態 ─────────────────────────────────────────────────────
+let queue      = [];   // 待複習佇列（今日應複習的單字）
+let current    = 0;    // 目前題目索引
+let isFlipped  = false;// 是否已翻牌
+let correctCount  = 0;
+let wrongCount    = 0;
+const TODAY_KEY   = 'done_today_' + new Date().toISOString().split('T')[0];
+
+// ── DOM 元素 ─────────────────────────────────────────────────
+const flashcard   = document.getElementById('flashcard');
+const cardWord    = document.getElementById('card-word');
+const cardBadges  = document.getElementById('card-badges');
+const cardTrans   = document.getElementById('card-translation');
+const cardSentence= document.getElementById('card-sentence');
+const answerBtns  = document.getElementById('answer-btns');
+const keyboardHint= document.getElementById('keyboard-hint');
+const btnCorrect  = document.getElementById('btn-correct');
+const btnWrong    = document.getElementById('btn-wrong');
+const btnSkip     = document.getElementById('btn-skip');
+const btnBack     = document.getElementById('btn-back');
+const btnSpeak    = document.getElementById('btn-speak');
+const progressFill= document.getElementById('progress-fill');
+const currentNum  = document.getElementById('current-num');
+const totalNum    = document.getElementById('total-num');
+const resultScreen= document.getElementById('result-screen');
+const reviewArea  = document.getElementById('review-area');
+
+// ── 載入題目 ─────────────────────────────────────────────────
+function loadQueue() {
+  queue = [...state.todayWords];
+  // 若今日沒有題目（剛同步前），給出提示
+  if (queue.length === 0) {
+    queue = [...state.allWords].slice(0, 10); // 備用：取前 10 筆
+  }
+  totalNum.textContent = queue.length;
+  showCard(0);
+}
+
+// ── 顯示指定題目 ─────────────────────────────────────────────
+function showCard(index) {
+  if (index >= queue.length) {
+    showResult();
+    return;
+  }
+
+  current   = index;
+  isFlipped = false;
+  flashcard.classList.remove('is-flipped');
+  answerBtns.style.display  = 'none';
+  keyboardHint.style.display= '';
+  document.getElementById('flashcard-scene').classList.remove('answered');
+
+  const word = queue[index];
+  cardWord.textContent       = word.word;
+  cardTrans.textContent      = word.translation || '（無翻譯）';
+  cardSentence.textContent   = word.sentence   || '';
+
+  // 徽章
+  const badges = [];
+  if (word.cefr) badges.push(`<span class="badge badge-cefr-${word.cefr}">${word.cefr}</span>`);
+  if (word.toeic) badges.push(`<span class="badge badge-toeic">⭐ 多益</span>`);
+  if (word.topic) badges.push(`<span class="badge badge-topic">${word.topic}</span>`);
+  cardBadges.innerHTML = badges.join('');
+
+  // 進度
+  currentNum.textContent   = index + 1;
+  const pct = Math.round((index / queue.length) * 100);
+  progressFill.style.width = pct + '%';
+}
+
+// ── 翻牌 ─────────────────────────────────────────────────────
+function flipCard() {
+  if (isFlipped) return;
+  isFlipped = true;
+  flashcard.classList.add('is-flipped');
+  answerBtns.style.display   = 'grid';
+  keyboardHint.style.display = 'none';
+  document.getElementById('flashcard-scene').classList.add('answered');
+  // 自動朗讀（可選）
+  // speak(queue[current].word);
+}
+
+// ── 答題 ─────────────────────────────────────────────────────
+async function answer(isCorrect) {
+  const word    = queue[current];
+  const updated = recordAnswer(word, isCorrect);
+
+  // 更新計數
+  if (isCorrect) correctCount++; else wrongCount++;
+
+  // 儲存 SM-2 進度到 localStorage
+  saveWordProgress(updated);
+
+  // 更新每日完成數
+  const done = parseInt(localStorage.getItem(TODAY_KEY) || '0', 10) + 1;
+  localStorage.setItem(TODAY_KEY, done);
+
+  // 非同步更新 Sheets（不阻塞 UI）
+  if (state.token) {
+    updateWordStatus(state.token, word.rowIndex, updated.reviewStatus, updated.errorCount)
+      .catch(err => console.warn('Sheets 更新失敗（離線模式）', err));
+  }
+
+  // 下一題
+  showCard(current + 1);
+}
+
+// ── 完成畫面 ─────────────────────────────────────────────────
+function showResult() {
+  reviewArea.style.display   = 'none';
+  resultScreen.classList.add('show');
+  progressFill.style.width   = '100%';
+
+  document.getElementById('res-correct').textContent = correctCount;
+  document.getElementById('res-wrong').textContent   = wrongCount;
+  document.getElementById('res-total').textContent   = queue.length;
+
+  const rate = queue.length > 0
+    ? Math.round((correctCount / queue.length) * 100) : 0;
+
+  let emoji = '🎉', msg = '';
+  if (rate >= 90)     { emoji = '🏆'; msg = '太棒了！繼續保持！'; }
+  else if (rate >= 70) { emoji = '👍'; msg = '不錯！再加把勁！'; }
+  else if (rate >= 50) { emoji = '💪'; msg = '繼續練習就會進步的！'; }
+  else                 { emoji = '📖'; msg = '多複習幾次，一定沒問題！'; }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('res-message').textContent  = msg;
+}
+
+// ── 朗讀 ─────────────────────────────────────────────────────
+function speak(word) {
+  if (!window.speechSynthesis) return;
+  const utt  = new SpeechSynthesisUtterance(word);
+  utt.lang   = 'en-GB';
+  utt.rate   = 0.9;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utt);
+}
+
+// ── 事件綁定 ─────────────────────────────────────────────────
+// 點擊閃卡翻牌
+document.getElementById('flashcard-scene').addEventListener('click', flipCard);
+
+btnCorrect.addEventListener('click', (e) => { e.stopPropagation(); answer(true);  });
+btnWrong.addEventListener('click',   (e) => { e.stopPropagation(); answer(false); });
+
+btnSpeak.addEventListener('click', () => {
+  if (queue[current]) speak(queue[current].word);
+});
+
+btnSkip.addEventListener('click', () => showCard(current + 1));
+btnBack.addEventListener('click', () => {
+  if (confirm('確定返回首頁？目前進度不會儲存')) location.href = './index.html';
+});
+
+document.getElementById('btn-review-again').addEventListener('click', () => {
+  correctCount = wrongCount = 0;
+  reviewArea.style.display = '';
+  resultScreen.classList.remove('show');
+  loadQueue();
+});
+
+// 鍵盤快捷鍵
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space')       { e.preventDefault(); flipCard();         }
+  else if (e.key === 'ArrowRight') answer(true);
+  else if (e.key === 'ArrowLeft')  answer(false);
+});
+
+// ── 啟動 ─────────────────────────────────────────────────────
+loadQueue();
+</script>
+</body>
+</html>

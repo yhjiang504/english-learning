@@ -16,7 +16,7 @@ import { getTodayWords } from './spaced-repetition.js';
 // Google Cloud Console → OAuth 2.0 用戶端 ID（Web 應用程式類型）
 const GOOGLE_CLIENT_ID   = '185112442093-cd2tsfhdab9kho7ed807kgrobdosdvit.apps.googleusercontent.com';
 // GitHub Pages 部署後的網址（需加入 OAuth 授權重新導向 URI）
-const REDIRECT_URI       = 'https://your-username.github.io/english-learning/';
+const REDIRECT_URI       = 'https://yhjiang504.github.io/english-learning/';
 // Google OAuth 授權端點
 const OAUTH_ENDPOINT     = 'https://accounts.google.com/o/oauth2/v2/auth';
 // 需要的 API 範圍

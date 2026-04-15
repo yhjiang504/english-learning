@@ -106,7 +106,8 @@ img, svg { max-width: 100%; }
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--color-surface0);
-  padding: 12px 20px;
+  /* iOS PWA standalone 模式：內容會在狀態列下方 → 需要安全區域內縮 */
+  padding: max(env(safe-area-inset-top, 0px), 12px) 20px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -311,8 +312,8 @@ img, svg { max-width: 100%; }
 .flashcard-scene {
   perspective: 1000px;
   width: 100%;
-  height: 260px;
-  margin: 24px 0;
+  height: 280px;   /* 略微加高以容納較大字體 */
+  margin: 20px 0;
   cursor: pointer;
 }
 
@@ -348,7 +349,7 @@ img, svg { max-width: 100%; }
 }
 
 .flashcard-front .card-word {
-  font-size: 36px;
+  font-size: clamp(2.2rem, 8vw, 36px);
   font-weight: 800;
   color: var(--color-primary);
   letter-spacing: 0.02em;
@@ -369,14 +370,14 @@ img, svg { max-width: 100%; }
 }
 
 .flashcard-back .card-translation {
-  font-size: 26px;
+  font-size: clamp(1.6rem, 6vw, 26px);
   font-weight: 700;
   color: var(--color-text);
   margin-bottom: 10px;
 }
 
 .flashcard-back .card-sentence {
-  font-size: 13px;
+  font-size: clamp(0.9rem, 3.5vw, 14px);
   color: var(--color-subtext);
   line-height: 1.7;
   margin-top: 8px;
@@ -723,7 +724,7 @@ img, svg { max-width: 100%; }
 /* 平板：480px ~ 768px */
 @media (min-width: 480px) {
   body { font-size: 16px; }
-  .flashcard-scene { height: 300px; }
+  .flashcard-scene { height: 310px; }
   .flashcard-front .card-word { font-size: 42px; }
 }
 
